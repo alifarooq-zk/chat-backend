@@ -1,22 +1,36 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger, UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 
 import { Server, Socket } from 'socket.io';
+import { SocketIoGuard } from 'src/guard/socketio-auth.guard';
+import { SocketIoMiddleware } from 'src/middleware/socketio-auth.middleware';
+import { JwtService } from 'src/module/core/jwt/jwt.service';
 
 @WebSocketGateway(3002, {})
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+@UseGuards(SocketIoGuard)
+@Injectable()
+export class ChatGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+{
   private readonly logger = new Logger(ChatGateway.name);
+
+  constructor(private readonly jwtService: JwtService) {}
 
   @WebSocketServer()
   private server: Server;
+
+  afterInit(client: Socket) {
+    client.use(SocketIoMiddleware(this.jwtService) as any);
+  }
 
   // =======================================================================
   // =============== Runs when client connects/disconnects =================
